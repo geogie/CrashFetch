@@ -9,6 +9,8 @@ import android.util.Log;
 
 import java.lang.reflect.Field;
 
+import me.weishu.reflection.Reflection;
+
 /**
  * Created By George
  * Description:
@@ -24,12 +26,12 @@ public final class Cockroach {
         if (sInstalled) {
             return;
         }
-//        try {
-//            //解除 android P 反射限制
-//            Reflection.unseal(ctx);
-//        } catch (Throwable throwable) {
-//            throwable.printStackTrace();
-//        }
+        try {
+            //解除 android P 反射限制
+            Reflection.unseal(ctx);
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
         sInstalled = true;
         sExceptionHandler = exceptionHandler;
 
@@ -55,22 +57,19 @@ public final class Cockroach {
      */
     private static void initActivityKiller() {
         //各版本android的ActivityManager获取方式，finishActivity的参数，token(binder对象)的获取不一样
-//        if (Build.VERSION.SDK_INT >= 28) {
-//            sActivityKiller = new ActivityKillerV28();
-//        } else if (Build.VERSION.SDK_INT >= 26) {
-//            sActivityKiller = new ActivityKillerV26();
-//        } else
-            if (Build.VERSION.SDK_INT == 25 || Build.VERSION.SDK_INT == 24) {
+        if (Build.VERSION.SDK_INT >= 28) {
+            sActivityKiller = new ActivityKillerV28();
+        } else if (Build.VERSION.SDK_INT >= 26) {
+            sActivityKiller = new ActivityKillerV26();
+        } else if (Build.VERSION.SDK_INT == 25 || Build.VERSION.SDK_INT == 24) {
             sActivityKiller = new ActivityKillerV24_V25();
+        } else if (Build.VERSION.SDK_INT >= 21 && Build.VERSION.SDK_INT <= 23) {
+            sActivityKiller = new ActivityKillerV21_V23();
+        } else if (Build.VERSION.SDK_INT >= 15 && Build.VERSION.SDK_INT <= 20) {
+            sActivityKiller = new ActivityKillerV15_V20();
+        } else if (Build.VERSION.SDK_INT < 15) {
+            sActivityKiller = new ActivityKillerV15_V20();
         }
-//        else if (Build.VERSION.SDK_INT >= 21 && Build.VERSION.SDK_INT <= 23) {
-//            sActivityKiller = new ActivityKillerV21_V23();
-//        } else if (Build.VERSION.SDK_INT >= 15 && Build.VERSION.SDK_INT <= 20) {
-//            sActivityKiller = new ActivityKillerV15_V20();
-//        } else if (Build.VERSION.SDK_INT < 15) {
-//            sActivityKiller = new ActivityKillerV15_V20();
-//        }
-
         try {
             hookmH();
         } catch (Throwable e) {
@@ -103,19 +102,19 @@ public final class Cockroach {
         callbackField.set(mhHandler, new Handler.Callback() {
             @Override
             public boolean handleMessage(Message msg) {
-//                if (Build.VERSION.SDK_INT >= 28) {//android P 生命周期全部走这
-//                    final int EXECUTE_TRANSACTION = 159;
-//                    if (msg.what == EXECUTE_TRANSACTION) {
-//                        try {
-//                            mhHandler.handleMessage(msg);
-//                        } catch (Throwable throwable) {
-//                            sActivityKiller.finishLaunchActivity(msg);
-//                            notifyException(throwable);
-//                        }
-//                        return true;
-//                    }
-//                    return false;
-//                }
+                if (Build.VERSION.SDK_INT >= 28) {//android P 生命周期全部走这(由于api28中msg.arg[100,110]delete了所以兼容处理)
+                    final int EXECUTE_TRANSACTION = 159;
+                    if (msg.what == EXECUTE_TRANSACTION) {
+                        try {
+                            mhHandler.handleMessage(msg);
+                        } catch (Throwable throwable) {
+                            sActivityKiller.finishLaunchActivity(msg);
+                            notifyException(throwable);
+                        }
+                        return true;
+                    }
+                    return false;
+                }
                 Log.d(TAG,"what:"+msg.what+" msg:"+msg.toString());
                 switch (msg.what) {
                     case LAUNCH_ACTIVITY:// startActivity--> activity.attach  activity.onCreate  r.activity!=null  activity.onStart  activity.onResume
